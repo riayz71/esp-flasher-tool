@@ -1,0 +1,96 @@
+<!DOCTYPE html><html>
+<head>
+  <meta charset="UTF-8">
+  <title>ESP8266 Flasher</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 20px;
+      background: #111;
+      color: white;
+    }
+    button, input {
+      font-size: 16px;
+      padding: 10px;
+      margin: 10px;
+      border: none;
+      border-radius: 5px;
+    }
+    button {
+      background: #1e90ff;
+      color: white;
+    }
+    progress {
+      width: 80%;
+      height: 20px;
+    }
+    #log {
+      text-align: left;
+      background: #222;
+      padding: 10px;
+      margin-top: 20px;
+      height: 200px;
+      overflow-y: scroll;
+      border-radius: 5px;
+      border: 1px solid #555;
+    }
+  </style>
+</head>
+<body>
+  <h1>ESP8266 Web Flasher</h1>
+  <button onclick="connectDevice()">Connect</button>
+  <br>
+  <input type="file" id="binFile">
+  <br>
+  <button onclick="flashFirmware()">Flash</button>
+  <br>
+  <progress id="progress" value="0" max="100"></progress>
+  <div id="log"></div><script>
+  let port, writer;
+
+  function log(msg) {
+    document.getElementById("log").innerText += msg + "\n";
+  }
+
+  async function connectDevice() {
+    try {
+      port = await navigator.serial.requestPort();
+      await port.open({ baudRate: 115200 });
+      log("Device connected");
+    } catch (err) {
+      log("Error: " + err);
+    }
+  }
+
+  async function flashFirmware() {
+    const fileInput = document.getElementById("binFile");
+    if (!port || !fileInput.files.length) {
+      log("Please connect a device and select a file.");
+      return;
+    }
+
+    const file = fileInput.files[0];
+    const reader = file.stream().getReader();
+    const writer = port.writable.getWriter();
+    const progress = document.getElementById("progress");
+    progress.value = 0;
+
+    log("Starting flash...");
+    let written = 0;
+    const total = file.size;
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      await writer.write(value);
+      written += value.length;
+      progress.value = (written / total) * 100;
+    }
+
+    writer.releaseLock();
+    log("Flashing complete!");
+  }
+</script></body>
+</html>
